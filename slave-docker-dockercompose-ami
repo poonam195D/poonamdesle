@@ -1,0 +1,123 @@
+#slave-agent-ami-with docker and dockFROM ubuntu:24.04
+
+# Set environment variables to avoid user prompts during install
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    apt-transport-https \
+    software-properties-common \
+    unzip \
+    tar \
+    git \
+    bash \
+    build-essential
+
+### ----------------------------
+### Install Docker & Docker CLI
+### ----------------------------
+
+# Add Docker’s official GPG key
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+# Set up the Docker repository
+RUN echo \
+  "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | \
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Install Docker packa    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-compose-plugin
+### Install Docker Compose v2.32.1 (Manually)
+### ----------------------------
+
+RUN curl -SL https://github.com/docker/compose/releases/download/v2.32.1/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose && \
+    chmod +x /usr/local/bin/docker-compose && \
+    ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+
+### ----------------------------
+### Install OpenJDK 17 from APT
+### ----------------------------
+
+RUN apt-get update && apt-get install -y openjdk-17-jdk
+
+# Set JAVA_HOME environment variable to the correct JDK path
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+### ----------------------------
+### Install Apache Maven 3.8.7
+### ----------------------------
+
+RUN curl -fsSL https://archive.apache.org/dist/maven/maven-3/3.8.7/binaries/apache-maven-3.8.7-bin.tar.gz \
+    | tar -xz -C /opt && \
+    ln -s /opt/apache-maven-3.8.7 /opt/maven
+ENV MAVEN_HOME=/opt/maven
+ENV PATH="$MAVEN_HOME/bin:$PATH"
+
+### ----------------------------
+### Verify Versions
+### ----------------------------
+
+RUN java -version && \
+    mvn -version && \
+    docker --version && \
+    docker-compose --version
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    unzip \
+    sudo \
+    openssh-server \
+    vim \
+    snapd \
+    python3-pip \
+    pipx \
+    && apt-get clean
+
+# Install awscli
+RUN  pipx install awscli
+RUN  pip3 install awscli --upgrade --break-system-packages
+
+# Create jenkins user
+RUN useradd -m -s /bin/bash jenkins && \
+    echo "jenkins ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Add jenkins user to docker group
+RUN usermod -aG docker jenkins
+# Create agent directory
+RUN mkdir -p /home/jenkins/agent && \
+    chown -R jenkins:jenkins /home/jenkins
+
+WORKDIR /home/jenkins/agent
+
+# Download Jenkins agent.jar
+#RUN curl -o agent.jar https://jenkinsk8s.ecdevops.net/jnlpJars/agent.jar
+
+# Copy entrypoint script
+COPY entrypoint.sh /home/jenkins/entrypoint.sh
+RUN chmod +x /home/jenkins/entrypoint.sh
+# Install Docker
+#RUN apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io
+
+# Add user (example: root) to the docker group
+RUN usermod -aG docker root
+
+# Optionally, you can add another user (example: 'myuser') to the docker group
+# Optionally, you can add another user (example: 'myuser') to the docker group
+RUN useradd -m myuser && usermod -aG docker myuser
+
+# Set the default user (optional, if you want to run as a non-root user)
+USER myuser
+USER jenkins
+ENTRYPOINT ["/home/jenkins/entrypoint.sh"]
+RUN apt-get update && apt-get install -y \
+  
