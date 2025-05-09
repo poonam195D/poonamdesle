@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+   name: jenkins
+spec:
+   replicas: 1
+   selector:
+      matchLabels:
+         app: jenkins
+   template:
+      metadata:
+         labels:
+            app: jenkins
+      spec:
+         affinity:
+                 nodeAffinity:
+                   requiredDuringSchedulingIgnoredDuringExecution:
+                     nodeSelectorTerms:
+                     - matchExpressions:
+                       - key: failure-domain.beta.kubernetes.io/zone
+                         operator: In
+                         values:
+                         - ap-south-1a  # Ensure this matches the AZ of your volume
+         containers:
+         -  name: jenkins
+            image: 329910471165.dkr.ecr.ap-south-1.amazonaws.com/jenkinsami:2.479.1
+            ports:
+            -  containerPort: 8080
+               name: web
+            -  containerPort: 8082
+               name: docker
+            -  containerPort: 8083
+               name: dockerperm
+            volumeMounts:
+            -  name: persistent-storage
+               mountPath: /var/jenkins_home
+            env:
+            -  name: JENKINS_DATA
+               value: /data
+         volumes:
+         -  name: persistent-storage
+            persistentVolumeClaim:
+               claimName: jenkins-claim
+~                                         
