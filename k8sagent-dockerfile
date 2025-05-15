@@ -1,0 +1,95 @@
+#Dockerfile with kubectl
+# ------------
+FROM ubuntu:24.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV GROOVY_VERSION=4.0.26
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    python3-pip \
+    pipx \
+    && apt-get clean
+
+# Install Groovy
+RUN curl -fSL "https://dlcdn.apache.org/groovy/${GROOVY_VERSION}/distribution/apache-groovy-binary-${GROOVY_VERSION}.zip" -o /tmp/groovy.zip && \
+    unzip /tmp/groovy.zip -d /opt && \
+    ln -s /opt/groovy-${GROOVY_VERSION} /opt/groovy
+
+# Install awscli using pipx
+RUN pipx install awscli
+
+# Copy only Groovy and awscli into final image
+# --------------------------------------------
+
+# ----------- STAGE 2: Final Image ------------
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    openjdk-17-jdk \
+    git \
+    sudo \
+   openssh-server \
+    docker.io \
+    vim \
+    python3-pip \
+    pipx \
+    && apt-get clean
+
+
+# Copy Groovy and awscli from builder
+COPY --from=builder /opt/groovy /opt/groovy
+COPY --from=builder /root/.local /root/.local
+ENV PATH="/opt/groovy/bin:/root/.local/bin:$PATH"
+ENV GROOVY_HOME=/opt/groovy
+
+# Create jenkins user
+RUN useradd -m -s /bin/bash jenkins && \
+    echo "jenkins ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    usermod -aG docker jenkins
+
+# Prepare Jenkins home and agent
+RUN mkdir -p /home/jenkins/agent && \
+    chown -R jenkins:jenkins /home/jenkins
+
+RUN apt-get update && apt-get install -y curl unzip git python3-pip rsync bc
+#RUN pip3 install awscli boto3 botocore pyyaml pathlib
+RUN apt-get install -y --reinstall groff-base
+RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+RUN chmod +x ./kubectl
+RUN mv ./kubectl /usr/local/bin
+RUN curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.16.8/2020-04-16/bin/linux/amd64/aws-iam-authenticator
+RUN openssl sha1 -sha256 aws-iam-authenticator
+RUN chmod +x ./aws-iam-authenticator && \
+    mkdir -p $HOME/bin && \
+    cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && \
+    echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
+RUN curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+RUN mv /tmp/eksctl /usr/local/bin
+RUN curl https://helm.baltorepo.com/organization/signing.asc | apt-key add -
+RUN apt-get install -y apt-transport-https
+RUN echo "deb https://baltocdn.com/helm/stable/debian/ all main" | tee /etc/apt/sources.list.d/helm-stable-debian.list
+RUN apt-get update
+RUN apt-get install -y helm
+USER root
+RUN curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash && \
+    mv kustomize /usr/local/bin/
+# Copy entrypoint script
+COPY entrypoint.sh /home/jenkins/entrypoint.sh
+RUN chmod +x /home/jenkins/entrypoint.sh
+
+USER jenkins
+WORKDIR /home/jenkins/agent
+
+ENTRYPOINT ["/home/jenkins/entrypoint.sh"]
+CMD ["dockerd"]
+CMD ["/lib/systemd/systemd"]
+#COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+#CMD ["/usr/bin/supervisord"]
+# Install kustomize
+#USER root
+#RUN curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash && \
