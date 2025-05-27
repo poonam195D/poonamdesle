@@ -1,0 +1,15 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-full-access-binding
+  namespace: kube-system
+subjects:
+- kind: ServiceAccount
+  name: jenkins-sa
+  namespace: env
+roleRef:
+  kind: Role
+  name: jenkins-full-access
+  apiGroup: rbac.authorization.k8s.io
+
+~                                        
