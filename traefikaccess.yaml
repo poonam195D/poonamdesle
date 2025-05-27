@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: jenkins-traefik-access
+rules:
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["clusterroles", "clusterrolebindings"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["traefik.io"]
+  resources: ["ingressroutes", "middlewares", "tlsoptions"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jenkins-traefik-access-binding
+subjects:
+- kind: ServiceAccount
+  name: jenkins-sa
+  namespace: env
+roleRef:
+  kind: ClusterRole
+  name: jenkins-traefik-access
+  apiGroup: rbac.authorization.k8s.io
