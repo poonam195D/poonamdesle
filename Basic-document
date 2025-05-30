@@ -1,0 +1,12 @@
+step 1:  create empty volume
+step 2:  create eks cluster
+step 3:  create extlb
+step 4:  mount new ebs volume to eks workernode
+step 5:  sudo mkfs -t ext4 /dev/nvme1n1
+step 6:  sudo mkdir /mnt/myebs
+step 7:  sudo mount /dev/nvme1n1 /mnt/myebs
+step 8:  apply jenkins-pv.yaml
+step 9:  apply jenkins-pvc.yaml
+step 10: apply jenkins deployment.yaml
+step 11: apply jenkins ingress.yaml
+
