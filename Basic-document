@@ -9,4 +9,8 @@ step 8:  apply jenkins-pv.yaml
 step 9:  apply jenkins-pvc.yaml
 step 10: apply jenkins deployment.yaml
 step 11: apply jenkins ingress.yaml
+step 12: configure cloud with svc http://jenkins.default.svc.cluster.local:8080
+step 13: apply SA for build 
+step 14: apply svc for build
+step 15: apply 
 
